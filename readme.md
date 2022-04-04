@@ -9,9 +9,35 @@
   - 데이터 타입
   - 데이터 식별 방법
 - 객체 구현일 경우 다형성도 활용 가능
-- 객체는 참조를 사용, DB는 외래키를 사용
+```
+// 자식 타입
+Album album = list.get(albumId);
+// 부모 타입
+Item item = list.get(albumId);
+```
+- 객체는 참조를 사용, DB는 외래키를 사용 <br>
+객체: member.getTeam();
+SQL: JOIN ON M.TEAM_ID = T.TEAM_ID
 - SQL에 따라 탐색 범위 결정, 객체는 자유롭게 객체 그래프를 탐색 가능해야함
+```
+SELECT M.*, T.*
+  FROM MEMBER M
+  JOIN TEAM T ON M.TEAM_ID = T.TEAM_ID
+
+member.getTeam(); // OK
+member.getOrder(); // null
+```
 - 엔티티 신뢰 문제 -> 상황에 따른 모든 조회 메서드 생성해야함
+```
+class MemberService {
+  ...
+  public void process() {
+    Member member = memberDao.find(memberId);
+    member.getTeam(); // ??
+    member.getOrder().getDelivery(); // ??
+  }
+}
+```
 - 계층형 아키텍처, 진정한 의미의 계층 분할이 어려움
 - SQL 조회 결과 같은 값이지만 다르다고 표현됨
 ```
