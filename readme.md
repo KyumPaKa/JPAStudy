@@ -52,3 +52,26 @@ Member member1 = list.get(memberId);
 Member member2 = list.get(memberId);
 member1 == member2; // 같다
 ```
+
+### JPA 소개
+- JPA
+  - Java Persistence API
+  - 자바 진영의 ORM 기술 표준
+  - 인터페이스의 모음
+  - 구현체: Hibernate, EclipseLink, DataNucleus
+
+- ORM
+  - Object-relational mapping(객체 관계 매핑)
+  - 객체는 객체대로, 관계형 데이터베이스는 관계형 데이터베이스대로 설계 후 ORM이 중간에서 매핑
+  - 대중적인 언어에는 대부분 ORM 기술이 존재
+
+- JPA 사용해야하는 이유
+  - SQL 중심적인 개발에서 객체 중심 으로 개발
+  - 생산성
+  - 유지보수
+  - 패러다임 불일치 해결
+  - 성능
+    - 1차 캐시와 동일성 보장
+    - 트랜잭션을 지원하는 쓰기 지연
+    - 지연 로딩
+  - 데이터 접근 추상화와 벤더 독립성
