@@ -148,3 +148,38 @@ List<Member> result = em.createQuery("select m from Member as m", Member.class)
         .setMaxResults(1)
         .getResultList();
 ```
+
+### 영속성 컨텍스트
+- 영속성 컨텍스트
+  - 엔티티를 영구 저장하는 환경
+  - EntityManager.persist(entity) -> DB가 아닌 영속성 컨텍스트에 저장하는 것
+  - 논리적인 개념
+  - 엔티티매니저를 통해 영속성 컨텍스트에 접근
+
+- 엔티티 생명주기
+  - 영속성(new/transient): 영속성 컨텍스트와 전혀 관계가 없는 새로운 상태
+  - 영속(managed): 영속성 컨텍스트에 관리되는 상태
+  - 준영속(detached): 영속성 컨텍스트에 저장되었다가 분리된 상태
+  - 삭제(removed): 삭제된 상태
+```
+// 비영속
+Member member = new Member();
+member.setId(100L);
+member.setName("HelloJPA");
+
+// 영속
+em.persist(member);
+
+// 회원 엔티티를 영속성 컨텍스트에서 분리, 준영속 상태
+em.detach(member);
+
+// 객체를 삭제한 상태
+em.remove(member);
+```
+
+- 영속성 컨텍스트의 이점
+  - 1차 캐시
+  - 동일성 보장
+  - 트랜잭션을 지원하는 쓰기 지연
+  - 변경 감지
+  - 지연 로딩
