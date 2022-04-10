@@ -214,7 +214,9 @@ em.remove(member);
 - 필드와 컬럼 매핑: @Column
 - 기본키 매핑: @Id
 - 연관관계 매핑: @ManyToOne, @JoinColumn
-<br>
+
+##### 필드와 컬럼 매핑
+
 - @Entity
   - 어노테이션이 붙은 객체는 JPA가 관리
   - 기본생성자 필수(public or protected)
@@ -263,4 +265,82 @@ em.remove(member);
 | length(DDL) | 문자 길이 제약조건, String 타입에만 사용한다.                                                                                                                                | 255 |
 | precision, scale(DDL) | BigDecimal 타입에서 사용한다(BigInteger도 사용할 수 있다). precision은 소수점을 포함한 전체 자 릿수를, scale은 소수의 자릿수다. 참고로 double, float 타입에는 적용되지 않는다. 아주 큰 숫자나 정밀한 소수를 다루어야 할 때만 사용한다. | precision=19, scale=2 |
 
+- @Enumerated
 
+|  속성  | 설명                                                                              | 기본값 |
+|:----:|:--------------------------------------------------------------------------------|:-----:|
+| value | EnumType.ORDINAL: enum 순서를 데이터베이스에 저장 <br> EnumType.STRING: enum 이름을 데이터베이스에 저장 | EnumType.ORDINAL |
+
+- @Temporal <br>
+날짜 타입(java.util.Date, java.util.Calendar)을 매핑할 때 사용
+
+|  속성  | 설명                                                                              | 기본값 |
+|:----:|:--------------------------------------------------------------------------------|:-----:|
+| TemporalType.DATE: 날짜, 데이터베이스 date 타입과 매핑 <br> (예: 2013–10–11) <br> TemporalType.TIME: 시간, 데이터베이스 time 타입과 매핑 <br> (예: 11:11:11) <br> TemporalType.TIMESTAMP: 날짜와 시간, 데이터베이스 <br> timestamp 타입과 매핑(예: 2013–10–11 11:11:11) | |
+
+- @Lob <br>
+  - 데이터베이스 BLOB, CLOB 타입과 매핑
+  - 속성이 없음
+
+- @Transient
+  - 필드 매핑 안할 때 사용
+  - 주로 메모리상에서만 임시로 어떤 값을 보관하고 싶을 때 사용
+
+##### 기본 키 매핑
+
+- @Id
+- @GeneratedValue 
+  - IDENTITY: 데이터베이스에 위임, MYSQL, DB에 insert 해야 키값을 알 수 있음, persist 시 바로 동작
+```
+@Entity 
+public class Member { 
+ @Id 
+ @GeneratedValue(strategy = GenerationType.IDENTITY) 
+ private Long id; 
+```
+  - SEQUENCE: 데이터베이스 시퀀스 오브젝트 사용, ORACLE
+    - @SequenceGenerator 필요
+```
+@Entity 
+@SequenceGenerator( 
+ name = "MEMBER_SEQ_GENERATOR", 
+ sequenceName = "MEMBER_SEQ", //매핑할 데이터베이스 시퀀스 이름
+ initialValue = 1, allocationSize = 1) 
+public class Member { 
+ @Id 
+ @GeneratedValue(strategy = GenerationType.SEQUENCE, 
+ generator = "MEMBER_SEQ_GENERATOR") 
+ private Long id; 
+```
+|  속성  | 설명                                                                              |        기본값         |
+|:----:|:--------------------------------------------------------------------------------|:------------------:|
+| name | 식별자 생성기 이름 |         필수         |
+| sequenceName | 데이터베이스에 등록되어 있는 시퀀스 이름 | hibernate_sequence |
+| initialValue | DDL 생성 시에만 사용됨, 시퀀스 DDL을 생성할 때 처음 1 시작하는 수를 지정한다. |         1          |
+| allocationSize | 시퀀스 한 번 호출에 증가하는 수 | 50 |
+| catalog, schema | 데이터베이스 catalog, schema 이름 | |
+  - TABLE: 키 생성용 테이블 사용, 모든 DB에서 사용
+    - @TableGenerator 필요
+```
+@Entity 
+@TableGenerator( 
+ name = "MEMBER_SEQ_GENERATOR", 
+ table = "MY_SEQUENCES", 
+ pkColumnValue = "MEMBER_SEQ", allocationSize = 1) 
+public class Member { 
+ @Id 
+ @GeneratedValue(strategy = GenerationType.TABLE, 
+ generator = "MEMBER_SEQ_GENERATOR") 
+ private Long id; 
+```
+|  속성  | 설명                                                  |        기본값         |
+|:----:|:----------------------------------------------------|:------------------:|
+| name | 식별자 생성기 이름                                          | 필수 |
+| table|  키생성 테이블명 | hibernate_sequences |
+| pkColumnName|  시퀀스 컬럼명 | sequence_name |
+| valueColumnName | 시퀀스 값 컬럼명 | next_val                                  |
+| pkColumnValue|  키로 사용할 값 이름 | 엔티티 이름 |
+| initialValue|  초기 값, 마지막으로 생성된 값이 기준이다. | 0 |
+| allocationSize|  시퀀스 한 번 호출에 증가하는 수(성능 최적화에 사용됨) | 50 |
+| catalog, schema|  데이터베이스 catalog, schema 이름 |                                                     |
+| uniqueConstraints(DDL) | 유니크 제약 조건을 지정할 수 있다. <br> - AUTO: 방언에 따라 자동 지정, 기본값 | |

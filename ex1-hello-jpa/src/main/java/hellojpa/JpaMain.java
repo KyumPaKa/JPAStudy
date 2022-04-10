@@ -74,7 +74,7 @@ public class JpaMain {
             Member member = new Member(200L, "member200");
             em.persist(member);
 
-            em.flush();
+//            em.flush();
 
             System.out.println("================");
             tx.commit();
