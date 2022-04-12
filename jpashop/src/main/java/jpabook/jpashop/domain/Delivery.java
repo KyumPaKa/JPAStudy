@@ -9,9 +9,8 @@ public class Delivery extends BaseEntity {
     @GeneratedValue
     private Long id;
 
-    private String city;
-    private String street;
-    private String zipcode;
+    @Embedded
+    private Address address;
 
     @Enumerated(EnumType.STRING)
     private DeliveryStatus status;
@@ -25,30 +24,6 @@ public class Delivery extends BaseEntity {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public String getCity() {
-        return city;
-    }
-
-    public void setCity(String city) {
-        this.city = city;
-    }
-
-    public String getStreet() {
-        return street;
-    }
-
-    public void setStreet(String street) {
-        this.street = street;
-    }
-
-    public String getZipcode() {
-        return zipcode;
-    }
-
-    public void setZipcode(String zipcode) {
-        this.zipcode = zipcode;
     }
 
     public DeliveryStatus getStatus() {
@@ -65,5 +40,13 @@ public class Delivery extends BaseEntity {
 
     public void setOrder(Order order) {
         this.order = order;
+    }
+
+    public Address getAddress() {
+        return address;
+    }
+
+    public void setAddress(Address address) {
+        this.address = address;
     }
 }
