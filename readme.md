@@ -399,7 +399,7 @@ public class Member {
 | cascade | 영속성 전이 기능을 사용한다. | |
 | targetEntity | 연관된 엔티티의 타입 정보를 설정한다. | |
 
-##### 고급 매핑
+### 고급 매핑
 - 상속관계 매핑
   - 객체의 상속과 구조와 DB의 슈퍼타입 서브타입 관계를 매핑
 - 주요 어노테이션
@@ -441,3 +441,63 @@ public class Member {
   - 공통 매핑 정보가 필요할 때 사용
   - 부모 클래스를 상속 받는 자식 클래스에 매핑 정보만 제공
   - 추상 클래스 권장
+
+### 프록시와 연관관계 관리
+
+##### 프록시
+- em.find()
+  - 데이터베이스를 통해서 실제 엔티티 객체 조회
+- em.getReference()
+  - 데이터베이스 조회를 미루는 가짜(프록시) 엔티티 객체 조회
+
+- 특징
+  - 프록시는 실제 클래스를 상속 받아서 만들어짐
+  - 프록시 객체를 호출하면 프록시 객체는 실제 객체의 메소드 호출
+  - 처음 사용할 때 한 번만 초기화, 프록시 객체가 실제 엔티티로 바뀌는 것은 아님
+  - 원본 엔티티를 상속받음, 따라서 타입 체크시 주의
+  - 영속성 컨텍스트에 찾는 엔티티가 이미 있으면 em.getReference()를 호출해도 실제 엔티티 반환
+  - 영속성 컨텍스트의 도움을 받을 수 없는 준영속 상태일 때, 프록시를 초기화하면 에러 발생
+
+- 프록시 확인
+  - PersistenceUnitUtil.isLoaded(Object entity)
+    - 프록시 인스턴스의 초기화 여부 확인
+  - entity.getClass().getName()
+    - 프록시 클래스 확인 방법
+  - org.hibernate.Hibernate.initialize(entity)
+    - 프록시 강제 초기화
+    - JPA 표준은 강제 초기화 없음
+
+##### 즉시 로딩과 지연 로딩
+
+- 지연로딩 fetch = FetchType.LAZY
+- 즉시로딩 fetch = FetchType.EAGER
+- 가급적 지연 로딩만 사용
+- 즉시 로딩은 JPQL에서 N+1 문제 발생
+- @ManyToOne, @OneToOne은 기본이 즉시 로딩
+- @OneToMany, @ManyToMany는 기본이 지연 로딩
+
+** JPQL fetch 조인이나, 엔티티 그래프 기능, 배치사이즈를 사용하여 N+1 대처 가능(추후 재학습)
+
+##### 영속성 전이(CASCADE)와 고아객체
+
+- 참조하는 곳이 하나일 때 사용해야함
+- 영속성 전이: CASCADE
+  - 특정 엔티티를 영속 상태로 만들 때 연관된 엔티티도 함께 영속상태로 만들도 싶을 때
+- CASCADE의 종류
+  - ALL: 모두 적용
+  - PERSIST: 영속
+  - REMOVE: 삭제
+  - MERGE: 병합
+  - REFRESH: REFRESH
+  - DETACH: DETACH
+```
+@OneToMany(mappedBy="parent", cascade=CascadeType.ALL)
+```
+
+- 고아객체
+  - 고아 객체 제거: 부모 엔티티와 연관관계가 끊어진 자식 엔티티를 자동으로 삭제
+  - 참조가 제거된 엔티티는 다른 곳에서 참조하지 않는 고아 객체로 보고 삭제하는 기능
+  - CascadeType.REMOVE처럼 동작
+```
+orphanRemoval = true
+```
