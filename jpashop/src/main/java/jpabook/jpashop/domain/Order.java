@@ -13,7 +13,7 @@ public class Order extends BaseEntity {
     @Column(name = "ORDER_ID")
     private long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "MEMBER_ID")
     private Member member;
 
@@ -22,11 +22,11 @@ public class Order extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private OrderState state;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "DELIVERY_ID")
     private Delivery delivery;
 
-    @OneToMany(mappedBy = "order")
+    @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
     private List<OrderItem> orderItems = new ArrayList<>();
 
     public void addOrderItem(OrderItem orderItem) {
