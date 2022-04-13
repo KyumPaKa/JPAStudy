@@ -561,3 +561,174 @@ orphanRemoval = true
   - 값 타입 컬렉션에 변경 사항이 발생하면, 주인 엔티티와 연관된 모든 데이터를 삭제하고, 값 타입 컬렉션에 있는 현재 값을 모두 다시 저장
 - 값 타입 컬렉션을 매핑하는 테이블은 모든 컬럼을 묶어서 기본키를 구성해야 함
 - 값 타입 컬렉션 대신에 일대다 관계를 고려함!
+
+### 객체지향 쿼리 언어
+
+##### 객체지향 쿼리 언어 소개
+- JPQL
+  - 가장 단순한 조회 방법
+  - 엔티티 객체를 중심으로 개발
+  - 검색을 할 때도 테이블이 아닌 엔티티 객체를 대상으로 검색, 모든 DB 데이터를 객체로 변환해서 검색하는 것은 불가능 -> 객체 지향 쿼리 언어 제공
+- JPA Criteria
+  - 문자가 아닌 자바코드로 JPQL을 작성할 수 있음
+  - JPQL 빌더 역할
+  - JPA 공식 기능
+  - 너무 복잡하고 실용성이 없음!
+  - 대신 QueryDSL 사용 권장
+- QueryDSL
+  - 문자가 아닌 자바코드로 JPQL을 작성할 수 있음
+  - JPQL 빌더 역할
+  - 컴파일 시점에 문법 오류를 찾을 수 있음
+  - 동적쿼리 작성 편리함
+  - 단순하고 쉬움
+  - 실무 사용 권장!
+- 네이티브 SQL
+  - SQL을 직접 사용
+  - JPQL로 해결할 수 없는 특정 데이터베이스에 의존적인 기능 사용시
+- JDBC API 직접 사용, MyBatis, SpringJdbcTemplate 함께 사용
+  - 단 영속성 컨텍스트를 적절한 시점에 강제로 플러시 필요
+
+##### JPQL
+- 엔티티 객체를 대상으로 쿼리
+- SQL을 추상화해서 특정데이터베이스 SQL에 의존하지 않음
+- 엔티티와 속성은 대소문자 구분
+- JPQL 키워드는 대소문자 구분 안함
+- 엔티티 이름 사용, 테이블 이름이 아님
+- 별칭 필수
+- 집합과 정렬
+  - COUNT
+  - SUM
+  - AVG
+  - MAX
+  - MIN
+  - GROUP BY, HAVING, ORDER BY
+- TypeQuery: 반환 타입이 명확할 때 사용
+- Query: 반환 타입이 명확하지 않을 때 사용
+```
+TypedQuery<Member> query = em.createQuery("SELECT m FROM Member m", Member.class); 
+Query query = em.createQuery("SELECT m.username, m.age from Member m");
+```
+- query.getResultList(): 결과가 하나 이상일 때
+- query.getSingleResult(): 결과가 정확히 하나일 때
+  - 결과가 없으면: javax.persistence.NoResultException
+  - 둘 이상이면: javax.persistence.NonUniqueResultException
+- 파라미터 바인딩
+  - 이름 기준
+  - 위치 기준
+```
+SELECT m FROM Member m where m.username=:username
+query.setParameter("username", usernameParam);
+
+SELECT m FROM Member m where m.username=?1
+query.setParameter(1, usernameParam);
+```
+
+##### 프로젝션
+- SELECT 절에 조회할 대상을 지정하는 것
+- 대상: 엔티티, 임베디드 타입, 스칼라 타입
+- DISTINCT로 중복 제거 가능
+- 여러 값 조회
+  1. Query 타입으로 조회
+  2. Object[] 타입으로 조회
+  3. new 명령어로 조회
+     - 패키지 명을 포함한 전체 클래스 명 입력
+     - 순서와 타입이 일치하는 생성자 필요
+
+```
+// 1.
+List resultList = em.createQuery("select m.username, m.age from Member as m").getResultList();
+Object o = resultList.get(0);
+Object[] result = (Object[]) o;
+System.out.println("result = " + result.get(0));
+System.out.println("result = " + result.get(1));
+
+// 2.
+List<Object[]> resultList = em.createQuery("select m.username, m.age from Member as m").getResultList();
+System.out.println("result = " + resultList.get(0));
+System.out.println("result = " + resultList.get(1));
+
+// 3.
+SELECT new jpabook.jpql.UserDTO(m.username, m.age) FROM Member m
+```
+
+##### 페이징
+- setFirstResult(int startPosition) : 조회 시작 위치
+- setMaxResults(int maxResult) : 조회할 데이터 수
+```
+String jpql = "select m from Member m order by m.name desc";
+List<Member> resultList = em.createQuery(jpql, Member.class)
+                            .setFirstResult(10)
+                            .setMaxResults(20)
+                            .getResultList();
+```
+
+##### 조인
+- 내부 조인
+  - SELECT m FROM Member m [INNER] JOIN m.team t
+- 외부 조인
+  - SELECT m FROM Member m LEFT [OUTER] JOIN m.team t
+- 세타 조인
+  - select count(m) from Member m, Team t where m.username = t.name
+- ON절을 활용한 조인
+  - 조인 대상 필터링
+    - SELECT m, t FROM Member m LEFT JOIN m.team t on t.name = 'A'
+  - 연관관계 없는 엔티티 외부 조인
+    - SELECT m, t FROM Member m LEFT JOIN Team t on m.username = t.name
+
+##### 서브 쿼리
+- [NOT] EXISTS (subquery): 서브쿼리에 결과가 존재하면 참
+  - ALL 모두 만족하면 참
+  - ANY, SOME: 같은 의미, 조건을 하나라도 만족하면 참
+- [NOT] IN (subquery): 서브쿼리의 결과 중 하나라도 같은 것이 있으면 참
+- 한계
+  - WHERE, HAVING 절에서만 서브 쿼리 사용 가능(JPA)
+  - SELECT 절도 가능(하이버네이트)
+  - FROM 절의 서브 쿼리는 현재 JPQL에서 불가능 -> 조인으로 풀어서 해결
+
+##### JPQL 타입 표현과 기타식
+- 문자: ‘HELLO’, ‘She’’s’
+- 숫자: 10L(Long), 10D(Double), 10F(Float)
+- Boolean: TRUE, FALSE
+- ENUM: jpabook.MemberType.Admin (패키지명 포함)
+- 엔티티 타입: TYPE(m) = Member (상속 관계에서 사용)
+- SQL과 문법이 같은 식
+  - EXISTS, IN
+  - AND, OR, NOT
+  - =, >, >=, <, <=, <>
+  - BETWEEN, LIKE, IS NULL
+
+##### 조건식
+- 기본 CASE 식
+```
+select
+ case when m.age <= 10 then '학생요금'
+ when m.age >= 60 then '경로요금'
+ else '일반요금'
+ end
+from Member m
+```
+- 단순 CASE 식
+```
+select
+ case t.name 
+ when '팀A' then '인센티브110%'
+ when '팀B' then '인센티브120%'
+ else '인센티브105%'
+ end
+from Team t
+```
+- COALESCE: 하나씩 조회해서 null이 아니면 반환
+- NULLIF: 두 값이 같으면 null 반환, 다르면 첫번째 값 반환
+
+##### JPQL 함수
+- CONCAT
+- SUBSTRING
+- TRIM
+- LOWER, UPPER
+- LENGTH
+- LOCATE
+- ABS, SQRT, MOD
+- SIZE, INDEX(JPA 용도)
+- 사용자 정의 함수 호출
+  - 사용전 방언에 추가해야 함
+  - 사용하는 DB 방언을 상속받고, 사용자 정의 함수를 등록
