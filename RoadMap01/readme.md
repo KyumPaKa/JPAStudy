@@ -783,15 +783,60 @@ where treat(i as Book).auther = ‘kim’
 ```
 
 ##### 엔티티 직접 사용
+- 엔티티를 직접 사용하면 SQL에서 해당 엔티티의 기본 키 값을 사용
+- 기본 키 값
+```
+String jpql = “select m from Member m where m = :member”; 
+List resultList = em.createQuery(jpql) 
+ .setParameter("member", member) 
+ .getResultList();
 
+String jpql = “select m from Member m where m.id = :memberId”; 
+List resultList = em.createQuery(jpql) 
+ .setParameter("memberId", memberId) 
+ .getResultList();
+```
+- 외래 키 값
+```
+Team team = em.find(Team.class, 1L); 
+String qlString = “select m from Member m where m.team = :team”; 
+List resultList = em.createQuery(qlString) 
+ .setParameter("team", team) 
+ .getResultList();
 
+String qlString = “select m from Member m where m.team.id = :teamId”; 
+List resultList = em.createQuery(qlString) 
+ .setParameter("teamId", teamId) 
+ .getResultList();
+```
 
+#####  Named 쿼리
+- 어노테이션, XML에 미리 정의해서 이름을 부여해두고 사용하는 JPQL
+- 정적 쿼리
+- 애플리케이션 로딩 시점에 초기화 후 재사용
+- 애플리케이션 로딩 시점에 쿼리를 검증!
+```
+@Entity
+@NamedQuery(
+         name = "Member.findByUsername",
+         query="select m from Member m where m.username = :username")
+public class Member {
+    ...
+}
 
+List<Member> resultList =  em.createNamedQuery("Member.findByUsername", Member.class)
+                             .setParameter("username", "회원1")
+                             .getResultList();
+```
+- Named 쿼리 환경에 따른 설정
+  - XML이 항상 우선권을 가짐
+  - 애플리케이션 운영 환경에 따라 다른 XML을 배포할 수 있음
 
-
-
-
-
-
-
-
+##### 벌크 연산
+- 쿼리 한 번으로 여러 테이블 로우 변경
+- executeUpdate()의 결과는 영향받은 엔티티 수 반환
+- UPDATE, DELETE 지원
+- INSERT(insert into .. select, 하이버네이트 지원)
+- 벌크 연산은 영속성 컨텍스트를 무시하고 데이터베이스에 직접 쿼리
+  - 벌크 연산을 먼저 실행
+  - 벌크 연산 수행 후 영속성 컨텍스트 초기화
