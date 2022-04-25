@@ -408,3 +408,148 @@ public class Item implements Persistable<String> {
   }
 }
 ```
+
+### 나머지 기능들
+
+##### Specifications (명세)
+- `org.springframework.data.jpa.domain.Specification` 클래스로 정의
+- `JpaSpecificationExecutor` 인터페이스 상속
+- Specification 을 구현하면 명세들을 조립할 수 있음. where() , and() , or() , not() 제공
+- 사용 방법이 불편하므로 실무에서 사용 비추천!
+
+##### Query By Example
+- Probe: 필드에 데이터가 있는 실제 도메인 객체
+- ExampleMatcher: 특정 필드를 일치시키는 상세한 정보 제공, 재사용 가능
+- Example: Probe와 ExampleMatcher로 구성, 쿼리를 생성하는데 사용
+```
+//Probe
+Member member = new Member("m1");
+Team team = new Team("teamA");
+member.setTeam(team);
+
+//ExampleMatcher
+ExampleMatcher matcher = ExampleMatcher.matching().withIgnorePaths("age");
+
+//Example
+Example<Member> example = Example.of(member, matcher);
+
+List<Member> result = memberRepository.findAll(example);
+```
+- 장점
+  - 동적 쿼리를 편리하게 처리
+  - 도메인 객체를 그대로 사용
+  - 데이터 저장소를 RDB에서 NOSQL로 변경해도 코드 변경이 없게 추상화 되어 있음
+  - 스프링 데이터 JPA JpaRepository 인터페이스에 이미 포함
+- 단점
+  - 조인은 가능하지만 내부 조인(INNER JOIN)만 가능함 외부 조인(LEFT JOIN) 안됨
+  - 중첩 제약조건 안됨
+  - 매칭 조건이 매우 단순함
+    - 문자는 starts/contains/ends/regex
+    - 다른 속성은 정확한 매칭( = )만 지원
+- 매칭 조건이 너무 단순하고, LEFT 조인이 안되므로 실무에서 사용 비추천!
+
+##### Projections
+- 엔티티 대신에 DTO를 편리하게 조회할 때 사용
+- 조회할 엔티티의 필드를 getter 형식으로 지정하면 해당 필드만 선택해서 조회
+```
+public interface UsernameOnly {
+  String getUsername();
+}
+```
+- 메서드 이름은 자유, 반환 타입으로 인지
+```
+public interface MemberRepository ... {
+  List<UsernameOnly> findProjectionsByUsername(String username);
+}
+```
+- 인터페이스 기반 Closed Projections
+```
+public interface UsernameOnly {
+  String getUsername();
+}
+```
+- 인터페이스 기반 Open Proejctions
+```
+public interface UsernameOnly {
+  @Value("#{target.username + ' ' + target.age + ' ' + target.team.name}")
+  String getUsername();
+}
+```
+- 클래스 기반 Projection
+```
+public class UsernameOnlyDto {
+  private final String username;
+  
+  public UsernameOnlyDto(String username) {
+    this.username = username;
+  }
+  
+  public String getUsername() {
+    return username;
+  }
+}
+```
+- 동적 Projections
+```
+<T> List<T> findProjectionsByUsername(String username, Class<T> type);
+
+List<UsernameOnly> result = memberRepository.findProjectionsByUsername("m1", UsernameOnly.class);
+```
+- 중첩 구조 처리
+```
+public interface NestedClosedProjection {
+  String getUsername();
+  
+  TeamInfo getTeam();
+  
+  interface TeamInfo {
+    String getName();
+  }
+}
+```
+- 주의
+  - 프로젝션 대상이 root 엔티티면, JPQL SELECT 절 최적화 가능
+  - 프로젝션 대상이 ROOT가 아니면 LEFT OUTER JOIN 처리 후 모든 필드를 SELECT해서 엔티티로 조회한 다음에 계산
+- 실무에서는 단순할 때만 사용하고, 조금만 복잡해지면 비추천!
+
+##### 네이티브 쿼리
+- 페이징 지원
+- 반환 타입
+  - Object[]
+  - Tuple
+  - DTO(스프링 데이터 인터페이스 Projections 지원)
+- 단점
+  - Sort 파라미터를 통한 정렬이 정상 동작하지 않을 수 있음
+  - JPQL처럼 애플리케이션 로딩 시점에 문법 확인 불가
+  - 동적 쿼리 불가
+- JPA 네이티브 SQL 지원
+  - DTO로 변환하려면 사용 불편
+    - DTO 대신 JPA TUPLE 조회
+    - DTO 대신 MAP 조회
+    - @SqlResultSetMapping
+    - Hibernate ResultTransformer를 사용
+```
+@Query(value = "select * from member where username = ?", nativeQuery = true)
+Member findByNativeQuery(String username);
+```
+- Projections 활용
+```
+@Query(value = "select m.member_id as id, m.username, t.name as teamName from member m left join team t"
+        , countQuery = "select count(*) from member"
+        , nativeQuery = true)
+Page<MemberProjection> findByNativeProjection(Pageable pageable);
+```
+- 동적 네이티브 쿼리
+  - 하이버네이트를 직접 활용
+  - 스프링 JdbcTemplate, myBatis, jooq같은 외부 라이브러리 사용 권장
+```
+String sql = "select m.username as username from member m";
+
+List<MemberDto> result = em.createNativeQuery(sql)
+                            .setFirstResult(0)
+                            .setMaxResults(10)
+                            .unwrap(NativeQuery.class)
+                            .addScalar("username")
+                            .setResultTransformer(Transformers.aliasToBean(MemberDto.class))
+                            .getResultList();
+```
