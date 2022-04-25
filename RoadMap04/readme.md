@@ -363,3 +363,48 @@ public Page<MemberDto> list(@PageableDefault(size = 5, sort = {"username"}) Page
   - 직접 클래스를 만들어서 처리
   - spring.data.web.pageable.one-indexed-parameters : true 설정
     - 웹에서 page 객체를 -1 처리할 뿐, 응답 시 -1 처리가 안됨
+
+### 스프링 데이터 JPA 분석
+
+##### 스프링 데이터 JPA 구현체 분석
+- JpaRepository 인터페이스의 구현체: org.springframework.data.jpa.repository.support.SimpleJpaRepository
+- `@Repository` 적용: JPA 예외를 스프링이 추상화한 예외로 변환
+- `@Transactional` 트랜잭션 적용
+  - 서비스 계층에서 트랜잭션을 시작하면 리파지토리는 해당 트랜잭션을 전파 받아서 사용
+  - SpringDataJpa 내부적으로 트랜잭션이 있음
+  - `@Transactional(readOnly = true)`
+    - 데이터를 단순히 조회만 하고 변경하지 않는 트랜잭션에서 `readOnly = true` 옵션을 사용하면 플러시를 생략해서 약간의 성능 향상을 얻을 수 있음
+- `save` 메소드는 새로운 엔티티면 저장(persist), 새로운 엔티티가 아니면 병합(merge)
+
+##### 새로운 엔티티를 구별하는 방법
+- 새로운 엔티티를 판단하는 기본 전략
+  - 식별자가 객체일 때 null 로 판단
+  - 식별자가 자바 기본 타입일 때 0 으로 판단
+  - `Persistable` 인터페이스를 구현해서 판단 로직 변경 가능
+- tip: `@CreatedDate` 이용
+```
+@EntityListeners(AuditingEntityListener.class)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Item implements Persistable<String> {
+
+  @Id
+  private String id;
+  
+  @CreatedDate
+  private LocalDateTime createdDate;
+  
+  public Item(String id) {
+    this.id = id;
+  }
+  
+  @Override
+  public String getId() {
+    return id;
+  }
+  
+  @Override
+  public boolean isNew() {
+    return createdDate == null;
+  }
+}
+```
