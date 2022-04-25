@@ -1,9 +1,11 @@
 package study.datajpa.entity;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
+import study.datajpa.repository.MemberRepository;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -16,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Transactional
 @Rollback(false)
 class MemberTest {
+
+    @Autowired MemberRepository memberRepository;
 
     @PersistenceContext
     EntityManager em;
@@ -48,5 +52,26 @@ class MemberTest {
             System.out.println("member = " + member);
             System.out.println("-> member.team = " + member.getTeam());
         }
+    }
+
+    @Test
+    public void JpaEventBaseEntity() {
+        //given
+        Member member = new Member("member1");
+        memberRepository.save(member); //@PrePersist
+
+        member.setUsername("member2");
+
+        em.flush(); //@PreUpdate
+        em.clear();
+
+        //when
+        Member findMember = memberRepository.findById(member.getId()).get();
+
+        //then
+        System.out.println("findMember.getCreateDate = " + findMember.getCreateDate());
+        System.out.println("findMember.getUpdateDate = " + findMember.getLastModifiedDate());
+        System.out.println("findMember.getCreatedBy = " + findMember.getCreatedBy());
+        System.out.println("findMember.getLastModifiedBy = " + findMember.getLastModifiedBy());
     }
 }

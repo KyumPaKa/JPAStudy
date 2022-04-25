@@ -176,9 +176,190 @@ Member findReadOnlyByUsername(String username);
 List<Member> findByUsername(String name);
 ```
 
+### 확장 기능
 
+##### 사용자 정의 Repository 구현
+- 새로운 interface 생성
+```
+public interface MemberRepositoryCustom {
+    List<Member> findMemberCustom();
+}
+```
+- repository명+Impl 으로 된 class 생성(+ 사용자 정의 인터페이스 명 + Impl)
+```
+@RequiredArgsConstructor
+public class MemberRepositoryImpl implements MemberRepositoryCustom {
 
+    private final EntityManager em;
 
+    @Override
+    public List<Member> findMemberCustom() {
+        return em.createQuery("select m from Member m", Member.class)
+                .getResultList();
+    }
+}
+```
+- 기존 interface 에 추가 implements
+```
+public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom {
+  ...
+}
+```
+- 꼭 interface 명에 Impl 붙여서 class 생성해야함
+```
+// 설정 변경 방법
+@EnableJpaRepositories(basePackages = "study.datajpa.repository", repositoryImplementationPostfix = "Impl")
+```
 
+##### Auditing
+- 순수 JPA 사용
+  - `@MappedSuperclass` : Entity가 아닌 부모객체 등록
+  - `@PrePersist`, `@PostPersist` : persist 동작 전/후
+  - `@PreUpdate`, `@PostUpdate` : update 동작 전/후
+```
+@MappedSuperclass
+@Getter
+public class JpaBaseEntity {
 
+    @Column(updatable = false)
+    private LocalDateTime createDate;
+    private LocalDateTime updateDate;
 
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createDate = now;
+        this.updateDate = now;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updateDate = LocalDateTime.now();
+    }
+
+}
+```
+
+- 스프링 데이터 JPA 사용
+  - `@EnableJpaAuditing` - 스프링 부트 설정 클래스에 적용해야함
+  - `@EntityListeners(AuditingEntityListener.class)` - 엔티티에 적용
+  - `@CreatedDate`, `@LastModifiedDate`,`@CreatedBy`, `@LastModifiedBy`
+```
+@EnableJpaAuditing
+@SpringBootApplication
+public class DataJpaApplication {
+  ...
+}
+
+@EntityListeners(AuditingEntityListener.class)
+@MappedSuperclass
+@Getter
+public class BaseEntity {
+
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDateTime createDate;
+
+    @LastModifiedDate
+    private LocalDateTime lastModifiedDate;
+
+    @CreatedBy
+    @Column(updatable = false)
+    private String createdBy;
+
+    @LastModifiedBy
+    private String lastModifiedBy;
+}
+```
+- 전체 적용 방법
+  - @EntityListeners(AuditingEntityListener.class) 를 생략하고 일괄 적용
+  - META-INF/orm.xml 파일 생성
+```
+<?xml version=“1.0” encoding="UTF-8”?>
+<entity-mappings xmlns=“http://xmlns.jcp.org/xml/ns/persistence/orm”
+  xmlns:xsi=“http://www.w3.org/2001/XMLSchema-instance”
+  xsi:schemaLocation=“http://xmlns.jcp.org/xml/ns/persistence/
+  orm http://xmlns.jcp.org/xml/ns/persistence/orm_2_2.xsd”
+  version=“2.2">
+  <persistence-unit-metadata>
+    <persistence-unit-defaults>
+      <entity-listeners>
+        <entity-listener class="org.springframework.data.jpa.domain.support.AuditingEntityListener”/>
+      </entity-listeners>
+    </persistence-unit-defaults>
+  </persistence-unit-metadata>
+</entity-mappings>
+```
+
+##### Web 확장 - 도메인 클래스 컨버터
+- HTTP 파라미터로 넘어온 엔티티의 아이디로 엔티티 객체를 찾아서 바인딩
+- 도메인 클래스 컨버터가 중간에 동작해서 회원 엔티티 객체를 반환
+- 도메인 클래스 컨버터로 엔티티를 파라미터로 받으면, 이 엔티티는 단순 조회용으로만 사용해야 함(트랜잭션 범위 밖)
+```
+@RestController
+@RequiredArgsConstructor
+public class MemberController {
+
+    private final MemberRepository memberRepository;
+
+    @GetMapping("/members/{id}")
+    public String findMember(@PathVariable("id") Long id) {
+        Member member = memberRepository.findById(id).get();
+        return member.getUsername();
+    }
+
+    @GetMapping("/members/{id}")
+    public String findMember2(@PathVariable("id") Member member) {
+        return member.getUsername();
+    }
+}
+```
+
+##### Web 확장 - 페이징과 정렬
+- 스프링 데이터가 제공하는 페이징과 정렬 기능을 스프링 MVC에서 편리하게 사용할 수 있음
+- 파라미터로 Pageable 을 받을 수 있음
+- 요청 파라미터
+  - page: 현재 페이지, 0부터 시작
+  - size: 한 페이지에 노출할 데이터 건수
+  - sort: 정렬 조건
+  - ex) /members?page=0&size=3&sort=id,desc&sort=username,desc
+```
+@GetMapping("/members")
+public Page<Member> list(Pageable pageable) {
+  Page<Member> page = memberRepository.findAll(pageable);
+  return page;
+}
+```
+- 글로벌 설정: 스프링 부트
+  - spring.data.web.pageable.default-page-size=20 /# 기본 페이지 사이즈/
+  - spring.data.web.pageable.max-page-size=2000 /# 최대 페이지 사이즈/
+- 개별 설정
+  - `@PageableDefault` 어노테이션
+```
+@GetMapping("/members")
+public Page<Member> list(@PageableDefault(size = 5, sort = {"username"}) Pageable pageable) {
+    Page<Member> page = memberRepository.findAll(pageable);
+    return page;
+}
+```
+- 접두사
+  - 페이징 정보가 둘 이상이면 접두사로 구분
+  - `@Qualifier` 에 접두사명 추가 "{접두사명}_xxx”
+```
+public String list(
+       @Qualifier("member") Pageable memberPageable,
+       @Qualifier("order") Pageable orderPageable, ..
+```
+- Page 내용을 DTO로 변환
+```
+@GetMapping("/members")
+public Page<MemberDto> list(@PageableDefault(size = 5, sort = {"username"}) Pageable pageable) {
+    Page<Member> page = memberRepository.findAll(pageable);
+    Page<MemberDto> map = page.map(MemberDto::new);
+    return map;
+}
+```
+- Page를 1부터 시작하기
+  - 직접 클래스를 만들어서 처리
+  - spring.data.web.pageable.one-indexed-parameters : true 설정
+    - 웹에서 page 객체를 -1 처리할 뿐, 응답 시 -1 처리가 안됨
