@@ -320,3 +320,33 @@ queryFactory.select(Expressions.stringTemplate(
             .fetch();
 ```
 - ansi 표준 함수들은 querydsl이 상당부분 내장하고 있음
+
+##### 실무 활용 - 스프링 데이터 JPA와 Querydsl
+- Page 인터페이스 구현체 : PageImpl
+```
+PageImpl(List<T> content, Pageable pageable, long total)
+```
+- 페이징 최적화
+  - 페이지 시작이면서 컨텐츠 사이즈가 페이지 사이즈보다 작을 때
+  - 마지막 페이지 일 때
+```
+//getPage(List<T> content, Pageable pageable, LongSupplier totalSupplier)
+
+PageableExecutionUtils.getPage(content, pageable, countQuery::fetchCount);
+```
+- 스프링 데이터 정렬
+  - OrderSpecifier 사용
+  - 복잡한 경우 Pageable의 Sort 기능 사용이 어려워져서 파라미터를 받아서 직접 처리하는 것을 권장
+```
+JPAQuery<Member> query = queryFactory.selectFrom(member);
+
+for (Sort.Order o : pageable.getSort()) {
+  PathBuilder pathBuilder = new PathBuilder(member.getType(), member.getMetadata());
+  query.orderBy(new OrderSpecifier(
+                        o.isAscending() ? Order.ASC : Order.DESC, 
+                        pathBuilder.get(o.getProperty())
+                                  )
+                );
+}
+List<Member> result = query.fetch();
+```
