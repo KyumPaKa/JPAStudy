@@ -350,3 +350,40 @@ for (Sort.Order o : pageable.getSort()) {
 }
 List<Member> result = query.fetch();
 ```
+
+### 스프링 데이터 JPA가 제공하는 Querydsl 기능
+
+##### 인터페이스 지원 - QuerydslPredicateExecutor
+- QuerydslPredicateExecutor<T> 인터페이스 상속
+```
+memberRepository.findAll(
+    member.age.between(10, 40).and(member.username.eq("member1")
+));
+```
+- 한계점
+  - left join 불가능함
+  - 서비스 클래스가 Querydsl에 의존해야함
+
+##### Querydsl Web 지원
+- 단순한 조건만 가능
+- 조건을 커스텀하는 기능이 복잡하고 명시적이지 않음
+- 컨트롤러가 Querydsl에 의존함
+- https://docs.spring.io/spring-data/jpa/docs/2.2.3.RELEASE/reference/html/#core.web.type-safe
+
+##### 리포지토리 지원 - QuerydslRepositorySupport
+- QuerydslRepositorySupport 상속
+- 장점
+  - getQuerydsl().applyPagination() 스프링 데이터가 제공하는 페이징을 Querydsl로 편리하게 변환 가능(단, sort 오류 발생)
+  - EntityManager 제공
+- 단점
+  - from() 으로 시작
+  - JPAQueryFactory로 시작할 수 없음
+  - 스프링 데이터 Sort 기능이 정상 동작하지 않음
+
+##### Querydsl 지원 클래스 직접 만들기
+- 장점
+  - 스프링 데이터가 제공하는 페이징을 편리하게 변환
+  - 페이징과 카운트 쿼리 분리 가능
+  - 스프링 데이터 Sort 지원
+  - select() , selectFrom() 으로 시작 가능
+  - EntityManager , QueryFactory 제공
